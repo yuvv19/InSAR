@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>InSAR 地灾形变可视化系统</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- ===== 顶部标题栏 ===== -->
+  <header class="header">
+    <div>
+      <h1>🛰 InSAR 地灾形变可视化系统</h1>
+      <div class="subtitle">支持 TXT / Excel / SHP / GeoPackage / QGIS 工程 · GIS 地图 · 时序分析</div>
+    </div>
+    <div id="fileName">未加载数据</div>
+  </header>
+
+  <div class="main-layout">
+
+    <!-- ===== 左侧工具栏 ===== -->
+    <aside class="sidebar">
+
+      <!-- 1. 数据导入 -->
+      <section>
+        <h3>📂 数据导入 <span class="toggle-icon">▼</span></h3>
+        <div class="section-body">
+          <div class="upload-zone" id="uploadZone">
+            <input type="file" id="fileInput" accept=".txt,.csv,.dat,.xlsx,.xls,.shp,.dbf,.zip,.gpkg,.geojson,.json,.qgz,.qgs" multiple />
+            <div>拖拽文件到此处<br>或点击选择文件</div>
+            <div style="margin-top:0.3rem;opacity:0.5;font-size:0.7rem">表格 · SHP · GPKG · GeoJSON · QGZ</div>
+          </div>
+          <button class="btn btn-secondary" id="loadSampleBtn" style="width:100%;margin-top:0.4rem">加载示例数据</button>
+          <div class="format-help">
+            <b>表格：</b> 表头含 <code>经度</code> <code>纬度</code>，其余列为时序<br>
+            <b>SHP：</b> 上传 <code>.zip</code> 或同时选 <code>.shp</code>+<code>.dbf</code><br>
+            <b>GPKG：</b> 直接上传 <code>.gpkg</code> 文件<br>
+            <b>QGIS：</b> 上传 <code>.qgz</code> 自动读取内含数据层<br>
+            <b>GeoJSON：</b> 上传 <code>.geojson</code> 文件<br>
+            <span style="color:#fbbf24">⚠ 坐标须为 WGS84 经纬度</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. 统计概览 -->
+      <section>
+        <h3>📊 统计概览 <span class="toggle-icon">▼</span></h3>
+        <div class="section-body">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="val" id="statTotal">—</div>
+              <div class="lbl">监测点总数</div>
+            </div>
+            <div class="stat-card">
+              <div class="val" id="statSubsidence">—</div>
+              <div class="lbl">沉降异常点</div>
+            </div>
+            <div class="stat-card">
+              <div class="val" id="statMin">—</div>
+              <div class="lbl">最小速率 mm/年</div>
+            </div>
+            <div class="stat-card">
+              <div class="val" id="statMax">—</div>
+              <div class="lbl">最大速率 mm/年</div>
+            </div>
+            <div class="stat-card" style="grid-column: span 2">
+              <div class="val" id="statAvg">—</div>
+              <div class="lbl">平均形变速率 mm/年</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. 显示设置 -->
+      <section>
+        <h3>🎨 显示设置 <span class="toggle-icon">▼</span></h3>
+        <div class="section-body">
+          <label>着色依据</label>
+          <select id="colorField">
+            <option value="velocity">形变速率 (mm/年)</option>
+            <option value="cumulative">累计形变量 (mm)</option>
+          </select>
+          <div class="legend" style="margin-top:0.5rem">
+            <div class="legend-bar"></div>
+            <div class="legend-labels">
+              <span>沉降</span><span>稳定</span><span>抬升</span>
+            </div>
+          </div>
+          <!-- 形变点样式设置 -->
+          <div class="style-settings" style="margin-top:0.6rem">
+            <label>点大小模式</label>
+            <select id="sizeMode">
+              <option value="uniform">统一大小（推荐）</option>
+              <option value="proportional">按形变值缩放</option>
+            </select>
+            <label>点大小 <span id="sizeValue" style="color:#fbbf24">5</span></label>
+            <input type="range" id="pointSize" min="2" max="20" value="5" step="1" />
+            <label>点形状</label>
+            <select id="pointShape">
+              <option value="circle">⬤ 圆形</option>
+              <option value="square">⬛ 方形</option>
+              <option value="triangle">▲ 三角形</option>
+              <option value="diamond">◆ 菱形</option>
+            </select>
+            <label>点透明度 <span id="opacityValue" style="color:#fbbf24">0.75</span></label>
+            <input type="range" id="pointOpacity" min="0.1" max="1" value="0.75" step="0.05" />
+            <label>边框粗细 <span id="borderValue" style="color:#fbbf24">1</span> px</label>
+            <input type="range" id="pointBorder" min="0" max="5" value="1" step="0.5" />
+            <label>边框颜色</label>
+            <select id="borderColor">
+              <option value="#fff">白色</option>
+              <option value="#000">黑色</option>
+              <option value="#555">灰色</option>
+              <option value="none">无边框</option>
+            </select>
+            <button class="btn btn-sm" id="applyStyleBtn" style="margin-top:0.35rem;width:100%">应用样式</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. 筛选与工具 -->
+      <section>
+        <h3>🔧 GIS 工具 <span class="toggle-icon">▼</span></h3>
+        <div class="section-body">
+          <label>速率筛选 (mm/年)</label>
+          <div style="display:flex;gap:0.3rem">
+            <input type="number" id="filterMin" placeholder="最小" value="-999" />
+            <input type="number" id="filterMax" placeholder="最大" value="999" />
+          </div>
+          <div class="tool-group">
+            <button class="btn btn-sm" id="applyFilterBtn">应用筛选</button>
+            <button class="btn btn-sm btn-secondary" id="clearFilterBtn">清除</button>
+          </div>
+          <div class="tool-group">
+            <button class="btn btn-sm btn-secondary" id="boxSelectBtn">📐 框选</button>
+            <button class="btn btn-sm btn-secondary" id="fitBoundsBtn">🔍 全览</button>
+          </div>
+          <!-- 导出格式选择 -->
+          <label style="margin-top:0.4rem">导出格式</label>
+          <select id="exportFormat">
+            <option value="geojson">GeoJSON (.geojson)</option>
+            <option value="txt">文本文件 (.txt)</option>
+            <option value="csv">CSV (.csv)</option>
+            <option value="xlsx">Excel (.xlsx)</option>
+            <option value="shp">Shapefile (.zip)</option>
+          </select>
+          <div class="tool-group" style="margin-top:0.3rem">
+            <button class="btn btn-sm btn-secondary" id="exportBtn">💾 导出全部</button>
+            <button class="btn btn-sm btn-secondary" id="exportSelectedBtn">💾 导出框选</button>
+          </div>
+        </div>
+      </section>
+
+    </aside>
+
+    <!-- ===== 中间地图 ===== -->
+    <div class="map-container">
+      <div id="map"></div>
+      <div class="coord-bar" id="coordInfo">经度: — &nbsp; 纬度: — &nbsp; 缩放: —</div>
+    </div>
+
+    <!-- ===== 右侧面板 ===== -->
+    <aside class="right-panel">
+
+      <!-- 选中点详情 -->
+      <section>
+        <h3>📍 监测点详情 <span class="toggle-icon">▼</span></h3>
+        <div class="section-body">
+          <div class="point-info" id="pointInfo">
+            <div class="empty">点击地图上的监测点<br>查看形变详情和时序曲线</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 时序图表 -->
+      <section>
+        <h3>📈 形变时间序列 <span class="toggle-icon">▼</span></h3>
+        <div class="section-body">
+          <!-- 曲线拟合选项 -->
+          <label>曲线拟合</label>
+          <select id="fitType">
+            <option value="none">无拟合</option>
+            <option value="linear">一次函数（线性拟合）</option>
+            <option value="quadratic">二次函数（抛物线拟合）</option>
+          </select>
+          <div id="fitInfo" class="fit-info" style="display:none"></div>
+          <!-- 时序图操作按钮 -->
+          <div class="chart-toolbar">
+            <button class="btn btn-sm btn-secondary" id="zoomChartBtn" title="放大查看">🔍 放大</button>
+            <button class="btn btn-sm btn-secondary" id="exportChartBtn" title="导出图表">💾 导出</button>
+            <select id="chartExportFormat" style="width:auto;padding:0.2rem 0.35rem;font-size:0.7rem">
+              <option value="png">PNG</option>
+              <option value="jpeg">JPEG</option>
+              <option value="svg">SVG</option>
+            </select>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="timeChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- 数据表格预览 -->
+      <section>
+        <h3>📋 数据预览 <span class="toggle-icon">▼</span></h3>
+        <div class="section-body">
+          <div class="table-wrap" id="tableWrap">
+            <div class="empty">加载数据后在此预览</div>
+          </div>
+        </div>
+      </section>
+
+    </aside>
+  </div>
+
+  <!-- 提示消息 -->
+  <div class="toast" id="toast"></div>
+  <div class="loading" id="loading">⏳ 正在解析数据…</div>
+
+  <!-- 时序图放大弹窗 -->
+  <div class="chart-modal" id="chartModal">
+    <div class="chart-modal-header">
+      <h3 id="chartModalTitle">形变时间序列（放大视图）</h3>
+      <div class="chart-modal-actions">
+        <select id="chartModalExportFormat" style="padding:0.25rem;font-size:0.75rem;background:#2a2f38;color:#e8eaed;border:1px solid rgba(255,255,255,0.12);border-radius:4px">
+          <option value="png">PNG</option>
+          <option value="jpeg">JPEG</option>
+          <option value="svg">SVG</option>
+        </select>
+        <button class="btn btn-sm btn-secondary" id="chartModalExportBtn">💾 导出</button>
+        <button class="btn btn-sm btn-secondary" id="chartModalCloseBtn">✕ 关闭</button>
+      </div>
+    </div>
+    <div class="chart-modal-body">
+      <canvas id="timeChartLarge"></canvas>
+    </div>
+  </div>
+
+  <!-- ===== 第三方库 ===== -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/shpjs@6.1.0/dist/shp.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+
+  <!-- ===== 本项目 JS ===== -->
+  <script src="js/parser.js"></script>
+  <script src="js/gis-formats.js"></script>
+  <script src="js/gis.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>
